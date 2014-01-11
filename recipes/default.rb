@@ -110,6 +110,13 @@ bash 'COPY _design/app' do
   not_if { __file_exists }
 end
 
+execute "couchapp push registry/app.js #{"#{Pathname.new(_registry['url']).cleanpath().to_s().gsub(':/', '://')}/registry"}" do
+  command "couchapp push registry/app.js #{"#{Pathname.new(_registry['url']).cleanpath().to_s().gsub(':/', '://')}/registry"}"
+  cwd "#{Chef::Config['file_cache_path']}/npmjs.org"
+  not_if { __file_exists }
+  action :run
+end
+
 execute "couchapp push www/app.js #{"#{Pathname.new(_registry['url']).cleanpath().to_s().gsub(':/', '://')}/registry"}" do
   command "couchapp push www/app.js #{"#{Pathname.new(_registry['url']).cleanpath().to_s().gsub(':/', '://')}/registry"}"
   cwd "#{Chef::Config['file_cache_path']}/npmjs.org"
@@ -144,6 +151,7 @@ when 'continuous'
   end
 
   log 'Configured continuous replication'
+
 else
   log "Skipping replication"
 end

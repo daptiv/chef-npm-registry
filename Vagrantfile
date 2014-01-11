@@ -12,7 +12,8 @@ Vagrant.configure('2') do |config|
       'couch_db' => {
         'config' => {
           'couchdb' => {
-            'database_dir' => '/usr/local/var/lib/couchdb'
+            'database_dir' => 'couchdb',
+            'src_version'  => '1.2.1'
           },
           'httpd' => {
             'bind_address' => '0.0.0.0',
@@ -22,13 +23,13 @@ Vagrant.configure('2') do |config|
       },
       'npm_registry' => {
         'replication' => {
-          'flavor' => 'none'
+          'flavor' => 'continuous'
         }
       }
     }
     chef.run_list = [
       'recipe[apt]',
-      'recipe[couchdb::source]',
+      'recipe[couchdb]',
       'recipe[git]',
       'recipe[nodejs::install_from_binary]',
       'recipe[npm_registry]',
