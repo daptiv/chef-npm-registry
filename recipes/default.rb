@@ -88,17 +88,17 @@ execute 'npm install semver' do
 end
 
 execute 'push.sh' do
-  command './push.sh'
+  command " ./push.sh"
   cwd "#{Chef::Config['file_cache_path']}/npmjs.org"
-  environment({'npm_package_config_couch' => "#{Pathname.new(_registry['url']).cleanpath().to_s().gsub(':/', '://')}/registry"})
+  environment({'npm_package_config_couch' => "#{Pathname.new(_registry['localhost_url']).cleanpath().to_s().gsub(':/', '://')}/registry"})
   not_if { __file_exists }
   action :run
 end
 
 execute 'load-views.sh' do
-  command './load-views.sh'
+  command "./load-views.sh"
   cwd "#{Chef::Config[:file_cache_path]}/npmjs.org"
-  environment({'npm_package_config_couch' => "#{Pathname.new(_registry['url']).cleanpath().to_s().gsub(':/', '://')}/registry"})
+  environment({'npm_package_config_couch' => "#{Pathname.new(_registry['localhost_url']).cleanpath().to_s().gsub(':/', '://')}/registry"})
   not_if { __file_exists }
   action :run
 end
@@ -108,13 +108,6 @@ bash 'COPY _design/app' do
     curl #{"#{Pathname.new(_registry['url']).cleanpath().to_s().gsub(':/', '://')}/registry"}/_design/scratch -X COPY -H destination:'_design/app'
   EOH
   not_if { __file_exists }
-end
-
-execute "couchapp push registry/app.js #{"#{Pathname.new(_registry['url']).cleanpath().to_s().gsub(':/', '://')}/registry"}" do
-  command "couchapp push registry/app.js #{"#{Pathname.new(_registry['url']).cleanpath().to_s().gsub(':/', '://')}/registry"}"
-  cwd "#{Chef::Config['file_cache_path']}/npmjs.org"
-  not_if { __file_exists }
-  action :run
 end
 
 execute "couchapp push www/app.js #{"#{Pathname.new(_registry['url']).cleanpath().to_s().gsub(':/', '://')}/registry"}" do
@@ -137,6 +130,22 @@ when 'scheduled'
 
   log "Configured scheduled replication"
 when 'continuous'
+  log "Starting initial replications"
+  http_request 'npm_registry' do
+    url "#{Pathname.new(_registry['url']).cleanpath().to_s().gsub(':/', '://')}/_replicate"
+    action :post
+    headers(
+      'Content-Type' => 'application/json'
+    )
+    message(
+      :source => "#{Pathname.new(_isaacs['registry']['url']).cleanpath().to_s().gsub(':/', '://')}/",
+      :target => "registry"
+    )
+  end
+
+  log 'Initial replication complete'
+
+  log 'Setup continuous replication'
   http_request 'npm_registry' do
     url "#{Pathname.new(_registry['url']).cleanpath().to_s().gsub(':/', '://')}/_replicate"
     action :post
@@ -149,8 +158,7 @@ when 'continuous'
       :continuous => true
     )
   end
-
-  log 'Configured continuous replication'
+  log "Configured continuous replication"
 
 else
   log "Skipping replication"
