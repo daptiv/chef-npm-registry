@@ -33,19 +33,6 @@ package 'curl' do
   action :install
 end
 
-execute 'killall beam' do
-  command 'killall beam'
-  returns [0, 1]
-  action :run
-end
-
-service 'couchdb' do
-  action :start
-end
-
-__file_exists = File.exists?("#{((_couchdb['database_dir'] ? Pathname.new(_couchdb['database_dir']).cleanpath() : nil) || '/usr/local/var/lib/couchdb')}/registry.couch")
-
-
 log 'Create registry database with continuous replication'
 http_request 'npm_registry' do
   url "#{Pathname.new(_registry['url']).cleanpath().to_s().gsub(':/', '://')}/_replicate"
@@ -65,12 +52,7 @@ log "Configured registry database with continuous replication"
 git "#{Chef::Config['file_cache_path']}/npmjs.org" do
   repository _git['url']
   reference _git['reference']
-  not_if { __file_exists }
   action :sync
-end
-
-log "Cloned #{_git['url']}@#{_git['reference']}" do
-  not_if { __file_exists }
 end
 
 log "Installing npm packages"
@@ -78,21 +60,18 @@ log "Installing npm packages"
 execute 'npm install couchapp -g' do
   command 'npm install couchapp -g'
   cwd "#{Chef::Config['file_cache_path']}/npmjs.org"
-  not_if { __file_exists }
   action :run
 end
 
 execute 'npm install couchapp' do
   command 'npm install couchapp'
   cwd "#{Chef::Config['file_cache_path']}/npmjs.org"
-  not_if { __file_exists }
   action :run
 end
 
 execute 'npm install semver' do
   command 'npm install semver'
   cwd "#{Chef::Config['file_cache_path']}/npmjs.org"
-  not_if { __file_exists }
   action :run
 end
 
@@ -101,7 +80,6 @@ execute 'push.sh' do
   command " ./push.sh"
   cwd "#{Chef::Config['file_cache_path']}/npmjs.org"
   environment({'npm_package_config_couch' => "#{Pathname.new(_registry['localhost_url']).cleanpath().to_s().gsub(':/', '://')}/registry"})
-  not_if { __file_exists }
   action :run
 end 
 
@@ -109,11 +87,8 @@ execute 'load-views.sh' do
   command "./load-views.sh"
   cwd "#{Chef::Config[:file_cache_path]}/npmjs.org"
   environment({'npm_package_config_couch' => "#{Pathname.new(_registry['localhost_url']).cleanpath().to_s().gsub(':/', '://')}/registry"})
-  not_if { __file_exists }
   action :run
 end
-
-
 
 log "Setting up replication"
 case _replication['flavor']
