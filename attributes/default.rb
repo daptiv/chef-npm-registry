@@ -19,7 +19,7 @@
 
 default['npm_registry']['git']['url']                          = 'https://github.com/isaacs/npmjs.org.git'
 default['npm_registry']['git']['reference']                    = 'master'
-default['npm_registry']['isaacs']['registry']['url']           = 'http://isaacs.iriscouch.com/registry'
+default['npm_registry']['isaacs']['registry']['url']           = 'http://isaacs.iriscouch.com/registry/'
 default['npm_registry']['registry']['url'] = "http://#{node['couch_db']['config']['httpd']['bind_address']}:#{node['couch_db']['config']['httpd']['port']}"
 default['npm_registry']['registry']['localhost_url']= "http://localhost:#{node['couch_db']['config']['httpd']['port']}"
 default['npm_registry']['replication']['flavor']               = 'none' # none, scheduled or continuous

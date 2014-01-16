@@ -40,20 +40,27 @@ execute 'killall beam' do
 end
 
 service 'couchdb' do
-  action :restart
+  action :start
 end
 
 __file_exists = File.exists?("#{((_couchdb['database_dir'] ? Pathname.new(_couchdb['database_dir']).cleanpath() : nil) || '/usr/local/var/lib/couchdb')}/registry.couch")
 
-http_request 'create registry database' do
-  url "#{Pathname.new(_registry['url']).cleanpath().to_s().gsub(':/', '://')}/registry"
-  not_if { __file_exists }
-  action :put
-end
 
-log "Created registry database" do
-  not_if { __file_exists }
+log 'Create registry database with continuous replication'
+http_request 'npm_registry' do
+  url "#{Pathname.new(_registry['url']).cleanpath().to_s().gsub(':/', '://')}/_replicate"
+  action :post
+  headers(
+    'Content-Type' => 'application/json'
+  )
+  message(
+    :source => "#{Pathname.new(_isaacs['registry']['url']).cleanpath().to_s().gsub(':/', '://')}",
+    :target => "registry",
+    :continuous => true,
+    :create_target => true
+  )
 end
+log "Configured registry database with continuous replication"
 
 git "#{Chef::Config['file_cache_path']}/npmjs.org" do
   repository _git['url']
@@ -106,19 +113,7 @@ execute 'load-views.sh' do
   action :run
 end
 
-bash 'COPY _design/app' do
-  code <<-EOH
-    curl #{"#{Pathname.new(_registry['url']).cleanpath().to_s().gsub(':/', '://')}/registry"}/_design/scratch -X COPY -H destination:'_design/app'
-  EOH
-  not_if { __file_exists }
-end
 
-execute "couchapp push www/app.js #{"#{Pathname.new(_registry['url']).cleanpath().to_s().gsub(':/', '://')}/registry"}" do
-  command "couchapp push www/app.js #{"#{Pathname.new(_registry['url']).cleanpath().to_s().gsub(':/', '://')}/registry"}"
-  cwd "#{Chef::Config['file_cache_path']}/npmjs.org"
-  not_if { __file_exists }
-  action :run
-end
 
 log "Setting up replication"
 case _replication['flavor']

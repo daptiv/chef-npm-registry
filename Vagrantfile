@@ -23,7 +23,7 @@ Vagrant.configure('2') do |config|
       },
       'npm_registry' => {
         'replication' => {
-          'flavor' => 'onetime'
+          'flavor' => 'none'
         }
       }
     }
