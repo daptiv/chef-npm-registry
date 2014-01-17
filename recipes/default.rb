@@ -33,9 +33,24 @@ package 'curl' do
   action :install
 end
 
-log 'Create registry database with continuous replication'
+execute 'killall beam' do
+  command 'killall beam'
+  returns [0, 1]
+  action :run
+end
+
+service 'couchdb' do
+  action :restart
+end
+
+http_request 'create registry database' do
+  url "#{Pathname.new(_registry['url']).cleanpath().to_s().gsub(':/', '://')}/registry"
+  action :put
+end
+
+log 'Create record in couchdb _replicator database for replication after server restart'
 http_request 'npm_registry' do
-  url "#{Pathname.new(_registry['url']).cleanpath().to_s().gsub(':/', '://')}/_replicate"
+  url "#{Pathname.new(_registry['url']).cleanpath().to_s().gsub(':/', '://')}/_replicator"
   action :post
   headers(
     'Content-Type' => 'application/json'
@@ -43,11 +58,10 @@ http_request 'npm_registry' do
   message(
     :source => "#{Pathname.new(_isaacs['registry']['url']).cleanpath().to_s().gsub(':/', '://')}",
     :target => "registry",
-    :continuous => true,
-    :create_target => true
+    :continuous => true
   )
 end
-log "Configured registry database with continuous replication"
+log 'Created record in _replicator database'
 
 git "#{Chef::Config['file_cache_path']}/npmjs.org" do
   repository _git['url']
@@ -90,48 +104,16 @@ execute 'load-views.sh' do
   action :run
 end
 
-log "Setting up replication"
-case _replication['flavor']
-when 'scheduled'
-  cron_d 'npm_registry' do
-    action :create
-    minute _scheduled['minute']
-    hour _scheduled['hour']
-    weekday _scheduled['weekday']
-    day _scheduled['day']
-    command %Q{curl -X POST -H "Content-Type:application/json" #{Pathname.new(_registry['url']).cleanpath().to_s().gsub(':/', '://')}/_replicate -d '{"source":"#{Pathname.new(_isaacs['registry']['url']).cleanpath().to_s().gsub(':/', '://')}/", "target":"registry"}'}
-  end
-
-  log "Configured scheduled replication"
-when 'continuous'
-  log 'Setup continuous replication'
-  http_request 'npm_registry' do
-    url "#{Pathname.new(_registry['url']).cleanpath().to_s().gsub(':/', '://')}/_replicate"
-    action :post
-    headers(
-      'Content-Type' => 'application/json'
-    )
-    message(
-      :source => "#{Pathname.new(_isaacs['registry']['url']).cleanpath().to_s().gsub(':/', '://')}",
-      :target => "registry",
-      :continuous => true
-    )
-  end
-  log "Configured continuous replication"
-when 'onetime'
-  log 'Setup onetime replication'
-  http_request 'npm_registry' do
-    url "#{Pathname.new(_registry['url']).cleanpath().to_s().gsub(':/', '://')}/_replicate"
-    action :post
-    headers(
-      'Content-Type' => 'application/json'
-    )
-    message(
-      :source => "#{Pathname.new(_isaacs['registry']['url']).cleanpath().to_s().gsub(':/', '://')}",
-      :target => "registry"
-    )
-  end
-  log "Configured onetime replication"
-else
-  log "Skipping replication"
+bash 'COPY _design/app' do
+  code <<-EOH
+    curl #{"#{Pathname.new(_registry['url']).cleanpath().to_s().gsub(':/', '://')}/registry"}/_design/scratch -X COPY -H destination:'_design/app'
+  EOH
 end
+
+execute "couchapp push www/app.js #{"#{Pathname.new(_registry['url']).cleanpath().to_s().gsub(':/', '://')}/registry"}" do
+  command "couchapp push www/app.js #{"#{Pathname.new(_registry['url']).cleanpath().to_s().gsub(':/', '://')}/registry"}"
+  cwd "#{Chef::Config['file_cache_path']}/npmjs.org"
+  action :run
+end
+
+
