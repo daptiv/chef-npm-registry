@@ -48,20 +48,6 @@ http_request 'create registry database' do
   action :put
 end
 
-log 'Create record in couchdb _replicator database for replication after server restart'
-http_request 'npm_registry' do
-  url "#{Pathname.new(_registry['url']).cleanpath().to_s().gsub(':/', '://')}/_replicator"
-  action :post
-  headers(
-    'Content-Type' => 'application/json'
-  )
-  message(
-    :source => "#{Pathname.new(_isaacs['registry']['url']).cleanpath().to_s().gsub(':/', '://')}",
-    :target => "registry",
-    :continuous => true
-  )
-end
-log 'Created record in _replicator database'
 
 git "#{Chef::Config['file_cache_path']}/npmjs.org" do
   repository _git['url']
